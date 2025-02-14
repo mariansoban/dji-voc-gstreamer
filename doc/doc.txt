@@ -1,0 +1,35 @@
+PREREQUESTS
+-----------
+-gstreamer, full version
+-Microsoft Visual Studio with BuildTools
+-Python 3
+-DJI goggles. e.g. v2 with connected e.g. AirUnit connected to PC with USB-C -> USB cable
+
+choco install python visualstudio2022-workload-vctools -y
+python -m pip install setuptools
+
+BUILD
+-----
+npm install
+
+HOW TO RUN
+----------
+node index.js -g
+	UDP h264 stream on localhost port 5600 for Mission Planner
+	
+node index.js -g -f rec.h264
+	UDP h264 stream on localhost port 5600 for Mission Planner and raw stream stored to file rec.h264
+	
+PROCESS RAW h.264 file
+----------------------
+gst-launch-1.0 -e filesrc location=rec.h264 ! h264parse ! avdec_h264 ! videoconvert ! x264enc bitrate=15000 ! mp4mux ! filesink location=rec.mp4
+
+STREAM DETAILS
+--------------
+gst-discoverer-1.0 -v rec.h264
+
+Mission Planner GStreamer source 
+--------------------------------
+MP -> left click on HUD -> Video -> Set GStreamer Source
+udpsrc port=5600 ! application/x-rtp, encoding-name=H264 ! rtph264depay ! avdec_h264 ! videoconvert ! appsink name=outsink sync=false
+

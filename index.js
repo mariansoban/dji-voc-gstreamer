@@ -1,6 +1,7 @@
 const usb = require('usb')
 const yargs = require('yargs')
 const fs = require('fs')
+const { spawn } = require('child_process');
 
 
 const argv = yargs
@@ -31,6 +32,16 @@ const argv = yargs
         describe: 'be noisy - doesn not play well with -o',
         type: 'boolean'
     })
+    .option('g', {
+        alias: 'gstreamer',
+        describe: 'send video feed to GStreamer for playback',
+        type: 'boolean'
+    })
+    .option('r', {
+        alias: 'record',
+        describe: 'record video feed to a file while playing',
+        type: 'string'
+    })
     .help()
     .alias('help', 'h')
     .argv;
@@ -46,19 +57,27 @@ if(!goggles.interfaces) {
     console.error("Couldn't open Goggles USB device")
     process.exit(1)
 }
-var interface = goggles.interface(3)
-interface.claim()
-if(!interface.endpoints) {
-    console.error("Couldn't claim bulk interface")
+
+try {
+    var interface = goggles.interface(3)
+    interface.claim()
+    if(!interface.endpoints) {
+        console.error("Couldn't claim bulk interface")
+        process.exit(1)
+    }
+} catch (error) {
+    console.error("Error claiming USB interface:", error.message);
     process.exit(1)
 }
 
-if(!argv.f && !argv.o) {
+
+if(!argv.f && !argv.o && !argv.g && !argv.r) {
     console.log("warning: no outputs specified")
     argv.v = true
 }
 
 var fd
+var gstProcess
 
 var inpoint = interface.endpoints[1]
 inpoint.timeout = 100
@@ -74,6 +93,43 @@ outpoint.transfer(magic, function(error) {
     console.debug("send magic bytes")
 
 })
+
+if (argv.g || argv.r) {
+    console.log("Starting GStreamer...");
+    // funkcne posielanie do MP HUD
+    // var pipeline = ['-vvv', '-e', 'fdsrc', 'fd=0', '!', 'h264parse', '!', 'rtph264pay', '!', 'udpsink', 'host=127.0.0.1', 'port=5600', 'sync=false'];
+
+    // konverzia na mp4
+    // var pipeline = ['-vvv', '-e', 'fdsrc', 'fd=0', '!', 'filesink', 'location=rec.h264'];
+
+    // funkcne, hardcoded
+     // var pipeline = ['-vvv', '-e', 'fdsrc', 'fd=0', '!', 'tee', 'name=t', 't.', '!', 'queue', '!', 'filesink', 'location=rec.h264', 't.', '!', 'queue', '!', 'h264parse', '!', 'rtph264pay', '!', 'udpsink', 'host=127.0.0.1', 'port=5600', 'sync=false'];
+     
+     var pipeline = ['-vvv', '-e', 'fdsrc', 'fd=0', '!'];
+
+    if (argv.r) {
+        console.log(`Recording video to: ${argv.r}`)
+        var recLocation = `${argv.r}`
+        var pipeline2 = ['tee', 'name=t', 't.', '!', 'queue', '!', 'filesink', 'location=' + recLocation, 't.', '!', 'queue', '!', 'h264parse', '!', 'rtph264pay', '!', 'udpsink', 'host=127.0.0.1', 'port=5600', 'sync=false'];
+        pipeline = pipeline.concat(pipeline2)
+    } else {
+        // pipeline.push('autovideosink');
+        var pipeline2 = ['h264parse', '!', 'rtph264pay', '!', 'udpsink', 'host=127.0.0.1', 'port=5600', 'sync=false']
+        pipeline = pipeline.concat(pipeline2)
+        console.log("pipeline: " + pipeline)
+    }
+
+
+    gstProcess = spawn('gst-launch-1.0', pipeline, {
+        stdio: ['pipe', 'inherit', 'inherit']
+    });
+
+    gstProcess.on('close', (code) => {
+        console.log(`GStreamer exited with code: ${code}`);
+    });
+}
+
+
 inpoint.addListener("data", function(data) {
     if(argv.o) {
         process.stdout.write(data)
@@ -91,9 +147,11 @@ inpoint.addListener("data", function(data) {
         }
         fs.writeSync(fd, data)
     }
+    if (gstProcess) {
+        gstProcess.stdin.write(data);
+    }
 })
 inpoint.addListener("error", function(error) {
-    console.error(error)
+    console.error("USB stream error:", err);
 })
 inpoint.startPoll(argv.q, argv.s)
-
