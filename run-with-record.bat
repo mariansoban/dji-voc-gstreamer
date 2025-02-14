@@ -1,2 +1,2 @@
-node index.js -g -r rec.h264
+node index.js -g -r recordings/rec.h264
 

@@ -34,3 +34,10 @@ Mission Planner GStreamer source
 MP -> left click on HUD -> Video -> Set GStreamer Source
 udpsrc port=5600 ! application/x-rtp, encoding-name=H264 ! rtph264depay ! avdec_h264 ! videoconvert ! appsink name=outsink sync=false
 
+TROUBLESHOOTING
+---------------
+1) If streaming doesnt' start
+	-> try to reconnect USB and restart
+
+2) If streaming to MP HUD has too big latency
+	-> try to reconnect USB and restart ;)
