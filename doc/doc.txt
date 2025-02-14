@@ -1,5 +1,6 @@
 PREREQUESTS
 -----------
+-Node.js
 -gstreamer, full version
 -Microsoft Visual Studio with BuildTools
 -Python 3
@@ -24,8 +25,8 @@ PROCESS RAW h.264 file
 ----------------------
 gst-launch-1.0 -e filesrc location=rec.h264 ! h264parse ! avdec_h264 ! videoconvert ! x264enc bitrate=15000 ! mp4mux ! filesink location=rec.mp4
 
-STREAM DETAILS
---------------
+STREAM FILE DETAILS
+-------------------
 gst-discoverer-1.0 -v rec.h264
 
 Mission Planner GStreamer source 
